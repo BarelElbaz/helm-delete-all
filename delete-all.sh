@@ -1,9 +1,9 @@
 #!/bin/sh
 # echo "Context: $HELM_KUBECONTEXT"
 # $HELM_BIN list -a | xargs -L1 $HELM_BIN delete
-PROGNAME=$(basename $0)
+PROGNAME= $(basename $0 .sh)
 display_help() {
-    echo "Usage: $PROGNAME [option...] {start|stop|restart}" >&2
+    echo "Usage: helm $PROGNAME [option...]" >&2
     echo
     echo "   -r, --resolution           run with the given resolution WxH"
     echo "   -d, --display              Set on which display to host on "
