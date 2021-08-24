@@ -1,7 +1,7 @@
 name: "delete-all"
 version: "0.1.0"
-usage: "USAGE: helm delete-all"
-description: "delete all releases from all namespaces"
+usage: "delete all releases from all namespaces"
+description: "Use to delete all releases from all namespaces. simply type helm delete-all"
 ignoreFlags: false
 command: "$HELM_PLUGIN_DIR/delete-all.sh"
 # platformCommand:

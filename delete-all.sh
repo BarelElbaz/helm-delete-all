@@ -1,3 +1,5 @@
 #!/bin/sh
-echo "Context: $HELM_KUBECONTEXT"
-$HELM_BIN list -a | xargs -L1 $HELM_BIN delete
+# echo "Context: $HELM_KUBECONTEXT"
+# $HELM_BIN list -a | xargs -L1 $HELM_BIN delete
+namespaces=$(kubectl get namespaces -o custom-columns=:.metadata.name)
+echo $namespaces
