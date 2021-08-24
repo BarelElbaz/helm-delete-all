@@ -2,15 +2,28 @@
 # echo "Context: $HELM_KUBECONTEXT"
 # $HELM_BIN list -a | xargs -L1 $HELM_BIN delete
 PROGNAME=$(basename $0 .sh)
+TIMEOUT=5
 display_help() {
     echo "Usage: helm $PROGNAME [option...]" >&2
-    echo
-    echo "   -r, --resolution           run with the given resolution WxH"
-    echo "   -d, --display              Set on which display to host on "
+    # echo
+    # echo "   -r, --resolution           run with the given resolution WxH"
+    # echo "   -d, --display              Set on which display to host on "
     echo
     # echo some stuff here for the -a or --add-options 
     exit 0
 }
+
+handle_error(){
+    # red=`tput setaf 1`
+    # green=`tput setaf 2`
+    # reset=`tput sgr0`
+    tput setaf 1; printf "ERROR: " && tput sgr0 ; printf "$1\n"
+    exit 1
+}
+
+timeout $TIMEOUT kubectl cluster-info > /dev/null 2>&1
+test ${?} -eq 0 || handle_error "the server might be offline"
+
 while :
 do
     case "$1" in
@@ -49,6 +62,17 @@ do
           ;;
     esac
 done
-namespaces=$(kubectl get namespaces -o custom-columns=:.metadata.name)
-echo $namespaces
 
+namespaces=$(kubectl get namespaces -o custom-columns=:.metadata.name)
+for namespace in $namespaces
+do
+    echo "Namespace: $namespace"
+    helm_charts=$($HELM_BIN list -a -n ${namespace} --short)
+    if [ -z "$helm_charts" ]; then
+        echo "Namespace is empty!"
+    else
+        for chart in $helm_charts ; do
+            $HELM_BIN delete -n ${namespace} $chart
+        done
+    fi  
+done
