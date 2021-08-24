@@ -1,7 +1,7 @@
 #!/bin/sh
 # echo "Context: $HELM_KUBECONTEXT"
 # $HELM_BIN list -a | xargs -L1 $HELM_BIN delete
-PROGNAME= $(basename $0 .sh)
+PROGNAME=$(basename $0 .sh)
 display_help() {
     echo "Usage: helm $PROGNAME [option...]" >&2
     echo
