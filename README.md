@@ -15,5 +15,5 @@ helm delete-all
 ```
 
 Thanks to:
-@ThreatACC
-@Whitehawk2
+[ThreatACC](https://github.com/ThreatACC)
+[Whitehawk2](https://github.com/Whitehawk2)
