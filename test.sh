@@ -13,6 +13,10 @@ display_help() {
     exit 0
 }
 
+# TRAPS!
+trap 'printf "\n----\n%s\n----\n" "ABORTING!"; exit 1'  INT HUP
+trap 'printf "Plugin aborted prematurely\n"' EXIT
+
 handle_error(){
     # red=`tput setaf 1`
     # green=`tput setaf 2`
