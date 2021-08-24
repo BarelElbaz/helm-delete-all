@@ -1,0 +1,16 @@
+name: "delete-all"
+version: "0.1.0"
+usage: "USAGE: helm delete-all"
+description: "delete all releases from all namespaces"
+ignoreFlags: false
+command: "$HELM_PLUGIN_DIR/delete-all.sh"
+# platformCommand:
+#   - os: linux
+#     arch: i386
+#     command: "$HELM_PLUGIN_DIR/delete-all.sh"
+#   - os: linux
+#     arch: amd64
+#     command: "$HELM_PLUGIN_DIR/delete-all.sh"
+#   - os: windows
+#     arch: amd64
+#     command: "$HELM_PLUGIN_DIR/delete-all.sh"
