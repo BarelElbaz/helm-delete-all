@@ -7,7 +7,8 @@ TIMEOUT=5
 display_help() {
     echo "Usage: helm $PROGNAME [option...]" >&2
     # echo
-    echo "   -t                 change default timeout, in seconds (default 5)"
+    echo "   -t, --timeout                 Change default timeout, in seconds (default 5)"
+    echo "   -h, --help                    Show this message"
     # echo "   -d, --display              Set on which display to host on "
     echo
     # echo some stuff here for the -a or --add-options
@@ -16,12 +17,19 @@ display_help() {
 
 # TRAPS!
 trap 'printf "\n----\n%s\n----\n" "ABORTING!"; exit 1'  INT HUP
+trap 'echo "Happy Helming!"' EXIT #CLEAN UP!!
 
 handle_error(){
     # red=`tput setaf 1`
     # green=`tput setaf 2`
     # reset=`tput sgr0`
-    tput setaf 1; printf "ERROR: " && tput sgr0 ; printf "%s\n" "$1"
+    if [ -n "$1" ] ; then
+        IN="$1"
+    else
+        read IN
+    fi
+    [ -z "$IN" ] && return 0
+    tput setaf 1; printf "ERROR: " && tput sgr0 ; printf "%s\n" "$IN" >&2
     exit 1
 }
 
@@ -66,32 +74,6 @@ do
             ;;
     esac
 done
-# --
-
-# more POSIXy(?) getopts, no "--" for now
-#while getopts ":[hH]t:" option; do
-#    case "$option" in
-#        t)  if is_integer "$OPTARG"; then
-#                echo "Setting timeout to: $OPTARG" && TIMEOUT="$OPTARG"
-#            else
-#                echo "Please use a NUMBER for timeout! (e.g, '4' for 4 secs)"
-#                exit 1
-#            fi
-#            ;;
-#       # v)  echo "Verbose mode on" && _V=1
-#       #     ;;
-#        [Hh]) display_help
-#            exit 0
-#            ;;
-#        \?) echo "Illegal option."
-#            display_help
-#            exit 1
-#            ;;
-#    esac
-#done
-
-## Get rid of the options that were processed
-#shift $((OPTIND -1))
 
 timeout "$TIMEOUT" kubectl cluster-info > /dev/null 2>&1
 test ${?} -eq 0 || handle_error "the server might be offline"
@@ -107,7 +89,7 @@ do
         echo "Namespace is empty!"
     else
         for chart in $helm_charts ; do
-            "$HELM_BIN" delete -n "${namespace}" "$chart"
+            ("$HELM_BIN" delete -n "${namespace}" "$chart" 2>&1 >&3 3>&- | handle_error >&2 3>&-) 3>&1
         done
     fi
 done
