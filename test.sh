@@ -1,6 +1,7 @@
 #!/bin/sh
-# echo "Context: $HELM_KUBECONTEXT"
-# helm list -a | xargs -L1 helm delete
+
+# set HELM_BIN using Helm, or default to 'helm' if empty
+HELM_BIN="${HELM_BIN:-helm}"
 PROGNAME="$(basename $0 .sh)"
 TIMEOUT=5
 display_help() {
@@ -15,7 +16,6 @@ display_help() {
 
 # TRAPS!
 trap 'printf "\n----\n%s\n----\n" "ABORTING!"; exit 1'  INT HUP
-trap 'printf "Plugin aborted prematurely\n"' EXIT
 
 handle_error(){
     # red=`tput setaf 1`
@@ -33,31 +33,65 @@ is_integer(){
         (*)                return 0 ;;
     esac
 }
-
-# more POSIXy(?) getopts, no "--" for now
-while getopts ":[hH]t:" option; do
-    case "$option" in
-        t)  if is_integer "$OPTARG"; then
-                echo "Setting timeout to: $OPTARG" && TIMEOUT="$OPTARG"
-            else
-                echo "Please use a NUMBER for timeout! (e.g, '4' for 4 secs)"
-                exit 1
+# --
+while :
+do
+    case "$1" in
+        -t | --[tT]imeout)
+            if [ $# -ne 0  ]; then
+                if is_integer "$2"; then
+                    echo "setting timeout to: $2" && TIMEOUT="$2"
+                else
+                    echo "Please use a NUMBER for timeout! (e.g, '4' for 4 secs)"
+                    exit 1
+                fi
             fi
+            shift 2
             ;;
-       # v)  echo "Verbose mode on" && _V=1
-       #     ;;
-        [Hh]) display_help
+        -[hH] | --[hH]elp)
+            display_help
             exit 0
             ;;
-        \?) echo "Illegal option."
+        --)
+            shift
+            break
+            ;;
+        -*)
+            echo "Illegal option!"
             display_help
             exit 1
             ;;
+        *)
+            break
+            ;;
     esac
 done
+# --
 
-# Get rid of the options that were processed
-shift $((OPTIND -1))
+# more POSIXy(?) getopts, no "--" for now
+#while getopts ":[hH]t:" option; do
+#    case "$option" in
+#        t)  if is_integer "$OPTARG"; then
+#                echo "Setting timeout to: $OPTARG" && TIMEOUT="$OPTARG"
+#            else
+#                echo "Please use a NUMBER for timeout! (e.g, '4' for 4 secs)"
+#                exit 1
+#            fi
+#            ;;
+#       # v)  echo "Verbose mode on" && _V=1
+#       #     ;;
+#        [Hh]) display_help
+#            exit 0
+#            ;;
+#        \?) echo "Illegal option."
+#            display_help
+#            exit 1
+#            ;;
+#    esac
+#done
+
+## Get rid of the options that were processed
+#shift $((OPTIND -1))
 
 timeout "$TIMEOUT" kubectl cluster-info > /dev/null 2>&1
 test ${?} -eq 0 || handle_error "the server might be offline"
@@ -67,12 +101,13 @@ namespaces=$(kubectl get namespaces -o custom-columns=:.metadata.name)
 for namespace in $namespaces
 do
     echo "Namespace: $namespace"
-    helm_charts="$(helm list -a -n ${namespace} --short)"
+    echo "--------"
+    helm_charts="$($HELM_BIN list -a -n ${namespace} --short)"
     if [ -z "$helm_charts" ]; then
         echo "Namespace is empty!"
     else
         for chart in $helm_charts ; do
-            helm delete -n "${namespace}" "$chart"
+            "$HELM_BIN" delete -n "${namespace}" "$chart"
         done
     fi
 done
