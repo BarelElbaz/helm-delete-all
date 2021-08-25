@@ -4,6 +4,7 @@
 HELM_BIN="${HELM_BIN:-helm}"
 PROGNAME="$(basename $0 .sh)"
 TIMEOUT=5
+DELETEPV=1
 display_help() {
     echo "Usage: helm $PROGNAME [option...]" >&2
     # echo
@@ -52,6 +53,9 @@ do
             display_help
             exit 0
             ;;
+        --deletePersistent | -d)
+            DELETEPV=0
+            ;;       
         --)
             shift
             break
@@ -112,3 +116,16 @@ do
     fi
 done
 
+if [ DELETEPV -eq 0 ] ; then
+    #### check if there are persistent volumes ####
+    persistent_volume=$(kubectl get persistentvolume 2> /dev/null | sed 1,1d | cut -d " " -f 1 )
+    if [ -z "$persistent_volume" ] ; then
+        echo "No PersistentVolumes to delete"
+        exit 1
+    else
+        ### added pv patch to finelaizers from https://github.com/kubernetes/kubernetes/issues/77258#issuecomment-514543465 ###
+        kubectl patch persistentvolume "$persistent_volume" -p '{"metadata":{"finalizers": null}}' 
+        ### delete pv ###
+        kubectl delete persistentvolume "$persistent_volume"  
+    fi
+fi
