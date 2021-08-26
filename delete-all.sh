@@ -55,6 +55,7 @@ do
             ;;
         --deletePersistent | -d)
             DELETEPV=0
+            shift
             ;;
         --)
             shift
@@ -90,16 +91,18 @@ do
     fi
 done
 
-if [ DELETEPV -eq 0 ] ; then
+if [ "$DELETEPV" -eq 0 ] ; then
     #### check if there are persistent volumes ####
-    persistent_volume=$(kubectl get persistentvolume 2> /dev/null | sed 1,1d | cut -d " " -f 1 )
+    persistent_volume=$(kubectl get persistentvolumeclaims 2> /dev/null | tail -n+2 | cut -d " " -f 1 )
     if [ -z "$persistent_volume" ] ; then
         echo "No PersistentVolumes to delete"
         exit 1
     else
+        for pvc in $persistent_volume; do
         ### added pv patch to finelaizers from https://github.com/kubernetes/kubernetes/issues/77258#issuecomment-514543465 ###
-        kubectl patch persistentvolume "$persistent_volume" -p '{"metadata":{"finalizers": null}}'
+        # kubectl patch persistentvolume "${pvc}" -p '{"metadata":{"finalizers": null}}'
         ### delete pv ###
-        kubectl delete persistentvolume "$persistent_volume"
+        kubectl delete persistentvolumeclaims "$pvc"
+        done
     fi
 fi

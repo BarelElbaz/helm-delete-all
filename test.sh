@@ -4,6 +4,7 @@
 HELM_BIN="${HELM_BIN:-helm}"
 PROGNAME="$(basename $0 .sh)"
 TIMEOUT=5
+DELETEPV=1
 display_help() {
     echo "Usage: helm $PROGNAME [option...]" >&2
     # echo
@@ -52,6 +53,11 @@ do
             display_help
             exit 0
             ;;
+        --deletePersistent | -d)
+            DELETEPV=0
+            shift
+            break
+            ;;
         --)
             shift
             break
@@ -66,32 +72,6 @@ do
             ;;
     esac
 done
-# --
-
-# more POSIXy(?) getopts, no "--" for now
-#while getopts ":[hH]t:" option; do
-#    case "$option" in
-#        t)  if is_integer "$OPTARG"; then
-#                echo "Setting timeout to: $OPTARG" && TIMEOUT="$OPTARG"
-#            else
-#                echo "Please use a NUMBER for timeout! (e.g, '4' for 4 secs)"
-#                exit 1
-#            fi
-#            ;;
-#       # v)  echo "Verbose mode on" && _V=1
-#       #     ;;
-#        [Hh]) display_help
-#            exit 0
-#            ;;
-#        \?) echo "Illegal option."
-#            display_help
-#            exit 1
-#            ;;
-#    esac
-#done
-
-## Get rid of the options that were processed
-#shift $((OPTIND -1))
 
 timeout "$TIMEOUT" kubectl cluster-info > /dev/null 2>&1
 test ${?} -eq 0 || handle_error "the server might be offline"
@@ -104,11 +84,31 @@ do
     echo "--------"
     helm_charts="$($HELM_BIN list -a -n ${namespace} --short)"
     if [ -z "$helm_charts" ]; then
-        echo "Namespace is empty!"
+        printf "Namespace is empty!\n"
     else
         for chart in $helm_charts ; do
             "$HELM_BIN" delete -n "${namespace}" "$chart"
         done
     fi
+
 done
 
+if [ "$DELETEPV" -eq 0 ] ; then
+    #### check if there are persistent volumes in the namespace ####
+    persistent_volume=$(kubectl get persistentvolume 2> /dev/null | sed 1,1d | cut -d " " -f 1 )
+    if [ -z "$persistent_volume" ] ; then
+        echo "No PersistentVolumes to delete"
+    else
+        persistent_volume_claims="$(kubectl get persistentvolumeclaims 2> /dev/null | tail -n+2 | cut -d ' ' -f1)"
+        ### added pv patch to finelaizers from https://github.com/kubernetes/kubernetes/issues/77258#issuecomment-514543465 ###
+
+#        for pv in $persistent_volume; do
+#            kubectl patch persistentvolume "${pv}" -p '{"metadata":{"finalizers": null}}'
+#        done
+        for pvc in $persistent_volume_claims; do
+                    #kubectl patch persistentvolume "${pv}" -p '{"metadata":{"finalizers": null}}'
+        ### delete pv ###
+            kubectl delete persistentvolumeclaim "${pvc}"
+        done
+    fi
+fi
