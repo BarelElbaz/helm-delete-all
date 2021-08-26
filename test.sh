@@ -21,7 +21,7 @@ handle_error(){
     # red=`tput setaf 1`
     # green=`tput setaf 2`
     # reset=`tput sgr0`
-    tput setaf 1; printf "ERROR: " && tput sgr0 ; printf "%s\n" "$1"
+    tput setaf 1; printf "ERROR: " && tput sgr0 ; printf "%s\n" "$1" >&2
     exit 1
 }
 
@@ -92,7 +92,27 @@ done
 
 ## Get rid of the options that were processed
 #shift $((OPTIND -1))
+fun(){
+    if [ -n "$1" ] ; then
+        IN="$1"
+    else
+        read IN
+    fi
 
+    [ -z "$IN" ] && return 0
+    echo "ERROR: $IN"
+}
+color_print(){
+    red='tput setaf 1'
+    green='tput setaf 2'
+    reset='tput sgr0'
+
+    $green ; printf "%s\n" "$1"
+    $reset
+}
+(timeout 3 echo hello 2>&1 >&3 3>&- | fun >&2 3>&-) 3>&1
+color_print balalalallalal
+#timeout 0 echo hello > >(tee -a stdout.log) 2> >(tee -a stderr.log >&2)
 timeout "$TIMEOUT" kubectl cluster-info > /dev/null 2>&1
 test ${?} -eq 0 || handle_error "the server might be offline"
 
