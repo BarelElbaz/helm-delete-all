@@ -3,11 +3,11 @@
 # set HELM_BIN using Helm, or default to 'helm' if empty
 HELM_BIN="${HELM_BIN:-helm}"
 PROGNAME="$(basename $0 .sh)"
-TIMEOUT=5
+TIMEOUT=10 
 display_help() {
     echo "Usage: helm $PROGNAME [option...]" >&2
     # echo
-    echo "   -t, --timeout                 Change default timeout, in seconds (default 5)"
+    echo "   -t, --timeout                 Change default timeout, in seconds (default 10)"
     echo "   -h, --help                    Show this message"
     # echo "   -d, --display              Set on which display to host on "
     echo
@@ -19,6 +19,16 @@ display_help() {
 trap 'printf "\n----\n%s\n----\n" "ABORTING!"; exit 1'  INT HUP
 trap 'echo "Happy Helming!"' EXIT #CLEAN UP!!
 
+color_print(){
+    ### https://unix.stackexchange.com/a/521120/391114 ###
+    red='tput setaf 1'
+    green='tput setaf 2'
+    reset='tput sgr0'
+
+    $green ; printf "%s\n" "$1"
+    $reset
+}
+
 handle_error(){
     # red=`tput setaf 1`
     # green=`tput setaf 2`
@@ -29,7 +39,7 @@ handle_error(){
         read IN
     fi
     [ -z "$IN" ] && return 0
-    tput setaf 1; printf "ERROR: " && tput sgr0 ; printf "%s\n" "$IN" >&2
+    tput setaf 1; printf "ERROR: " && tput sgr0 ; printf "%s\n" "${IN#Error: }" >&2
     exit 1
 }
 
@@ -82,8 +92,8 @@ test ${?} -eq 0 || handle_error "the server might be offline"
 namespaces=$(kubectl get namespaces -o custom-columns=:.metadata.name)
 for namespace in $namespaces
 do
-    echo "Namespace: $namespace"
     echo "--------"
+    color_print "Namespace: $namespace" 2>/dev/null || echo "Namespace: $namespace"
     helm_charts="$($HELM_BIN list -a -n ${namespace} --short)"
     if [ -z "$helm_charts" ]; then
         echo "Namespace is empty!"
@@ -93,4 +103,4 @@ do
         done
     fi
 done
-
+echo "--------"
