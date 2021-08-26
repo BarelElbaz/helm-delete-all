@@ -10,8 +10,10 @@ SKIP_NS=""      # NS to skip, if set
 display_help() {
     echo "Usage: helm $PROGNAME [option...]" >&2
     # echo
-    echo "   -t                 change default timeout, in seconds (default 5)"
-    # echo "   -d, --display              Set on which display to host on "
+    echo "   -t | --timeout [seconds]       Change default timeout, in seconds (default 5)"
+    echo "   -d | --deletePersistent        If set, deletes all PVCs"
+    echo "   -e | --except-namespace [ns]   Skips this namespaces"
+    echo "   -h | --help                    Show this message"
     echo
     # echo some stuff here for the -a or --add-options
     exit 0
@@ -119,3 +121,4 @@ if [ "$DELETEPV" -eq 0 ] ; then
         done
     fi
 fi
+
