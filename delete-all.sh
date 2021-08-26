@@ -3,13 +3,17 @@
 # set HELM_BIN using Helm, or default to 'helm' if empty
 HELM_BIN="${HELM_BIN:-helm}"
 PROGNAME="$(basename $0 .sh)"
-TIMEOUT=10 
+TIMEOUT=10
+DELETEPV=1
+SKIP_NS=""      # NS to skip, if set
+
 display_help() {
     echo "Usage: helm $PROGNAME [option...]" >&2
     # echo
-    echo "   -t, --timeout                 Change default timeout, in seconds (default 10)"
-    echo "   -h, --help                    Show this message"
-    # echo "   -d, --display              Set on which display to host on "
+    echo "   -t | --timeout [seconds]       Change default timeout, in seconds (default 10)"
+    echo "   -d | --deletePersistent        If set, deletes all PVCs"
+    echo "   -e | --except-namespace [ns]   Skips this namespaces"
+    echo "   -h | --help                    Show this message"
     echo
     # echo some stuff here for the -a or --add-options
     exit 0
@@ -27,6 +31,7 @@ color_print(){
 
     $green ; printf "%s\n" "$1"
     $reset
+    return 0
 }
 
 handle_error(){
@@ -52,6 +57,12 @@ is_integer(){
     esac
 }
 # --
+# Canonicalizing (is that a word?) opts
+TEMP=$(getopt -o t:hde: --long timeout:,help,deletePersistent,except-namespace: \
+    -n "$0" -- "$@")
+
+eval set -- "$TEMP"
+
 while :
 do
     case "$1" in
@@ -66,9 +77,17 @@ do
             fi
             shift 2
             ;;
+        -e | --except-namespace)
+            echo "skipping NS $2" && SKIP_NS="$2"
+            shift 2
+            ;;
         -[hH] | --[hH]elp)
             display_help
             exit 0
+            ;;
+        --deletePersistent | -d)
+            DELETEPV=0
+            shift
             ;;
         --)
             shift
@@ -94,13 +113,33 @@ for namespace in $namespaces
 do
     echo "--------"
     color_print "Namespace: $namespace" 2>/dev/null || echo "Namespace: $namespace"
+
+    ### Skip this namespace if in -e flag
+    [ "$namespace" = "$SKIP_NS" ] &&  printf "skipping ns %s as requested\n" "${namespace}" && continue
+
     helm_charts="$($HELM_BIN list -a -n ${namespace} --short)"
     if [ -z "$helm_charts" ]; then
-        echo "Namespace is empty!"
+        printf "No releases in this namespace!\n"
     else
         for chart in $helm_charts ; do
             ("$HELM_BIN" delete -n "${namespace}" "$chart" 2>&1 >&3 3>&- | handle_error >&2 3>&-) 3>&1
         done
     fi
+
+    ### PVC delete [merged from ThreatACC]###
+    if [ "$DELETEPV" -eq 0 ] ; then
+        persistent_volume=$(kubectl get persistentvolumeclaims -n "${namespace}" 2> /dev/null | tail -n+2 | cut -d " " -f 1 )
+        if [ -z "$persistent_volume" ] ; then
+            echo "No PersistentVolumes to delete in this namespace"
+        else
+            for pvc in $persistent_volume; do
+                kubectl delete -n "${namespace}" persistentvolumeclaim "${pvc}"
+            done
+        fi
+    fi
+
+    echo "--------"
 done
-echo "--------"
+
+
+
