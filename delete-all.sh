@@ -5,6 +5,8 @@ HELM_BIN="${HELM_BIN:-helm}"
 PROGNAME="$(basename $0 .sh)"
 TIMEOUT=5
 DELETEPV=1
+SKIP_NS=""      # NS to skip, if set
+
 display_help() {
     echo "Usage: helm $PROGNAME [option...]" >&2
     # echo
@@ -35,6 +37,12 @@ is_integer(){
     esac
 }
 # --
+# Canonicalizing (is that a word?) opts
+TEMP=$(getopt -o t:hde: --long timeout:,help,deletePersistent,except-namespace: \
+    -n "$0" -- "$@")
+
+eval set -- "$TEMP"
+
 while :
 do
     case "$1" in
@@ -47,6 +55,10 @@ do
                     exit 1
                 fi
             fi
+            shift 2
+            ;;
+        -e | --except-namespace)
+            echo "skipping NS $2" && SKIP_NS="$2"
             shift 2
             ;;
         -[hH] | --[hH]elp)
@@ -81,6 +93,8 @@ for namespace in $namespaces
 do
     echo "Namespace: $namespace"
     echo "--------"
+    ### Skip this namespace if in -e flag
+    [ "$namespace" = "$SKIP_NS" ] &&  printf "skipping ns %s as requested\n" "${namespace}"; continue
     helm_charts="$($HELM_BIN list -a -n ${namespace} --short)"
     if [ -z "$helm_charts" ]; then
         printf "Namespace is empty!\n"
@@ -89,20 +103,19 @@ do
             "$HELM_BIN" delete -n "${namespace}" "$chart"
         done
     fi
+
 done
 
 if [ "$DELETEPV" -eq 0 ] ; then
-    #### check if there are persistent volumes ####
+    #### check if there are persistent volumes in the namespace ####
     persistent_volume=$(kubectl get persistentvolumeclaims 2> /dev/null | tail -n+2 | cut -d " " -f 1 )
     if [ -z "$persistent_volume" ] ; then
         echo "No PersistentVolumes to delete"
-        exit 1
     else
         for pvc in $persistent_volume; do
-        ### added pv patch to finelaizers from https://github.com/kubernetes/kubernetes/issues/77258#issuecomment-514543465 ###
-        # kubectl patch persistentvolume "${pvc}" -p '{"metadata":{"finalizers": null}}'
-        ### delete pv ###
-        kubectl delete persistentvolumeclaims "$pvc"
+            ### added pv patch to finelaizers from https://github.com/kubernetes/kubernetes/issues/77258#issuecomment-514543465 ###
+            #kubectl patch persistentvolume "${pv}" -p '{"metadata":{"finalizers": null}}'
+            kubectl delete persistentvolumeclaim "${pvc}"
         done
     fi
 fi
