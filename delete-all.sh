@@ -31,6 +31,7 @@ color_print(){
 
     $green ; printf "%s\n" "$1"
     $reset
+    return 0
 }
 
 handle_error(){
@@ -114,29 +115,31 @@ do
     color_print "Namespace: $namespace" 2>/dev/null || echo "Namespace: $namespace"
 
     ### Skip this namespace if in -e flag
-    [ "$namespace" = "$SKIP_NS" ] &&  printf "skipping ns %s as requested\n" "${namespace}"; continue
+    [ "$namespace" = "$SKIP_NS" ] &&  printf "skipping ns %s as requested\n" "${namespace}" && continue
 
     helm_charts="$($HELM_BIN list -a -n ${namespace} --short)"
     if [ -z "$helm_charts" ]; then
-        printf "Namespace is empty!\n"
+        printf "No releases in this namespace!\n"
     else
         for chart in $helm_charts ; do
             ("$HELM_BIN" delete -n "${namespace}" "$chart" 2>&1 >&3 3>&- | handle_error >&2 3>&-) 3>&1
         done
     fi
+
+    ### PVC delete [merged from ThreatACC]###
+    if [ "$DELETEPV" -eq 0 ] ; then
+        persistent_volume=$(kubectl get persistentvolumeclaims -n "${namespace}" 2> /dev/null | tail -n+2 | cut -d " " -f 1 )
+        if [ -z "$persistent_volume" ] ; then
+            echo "No PersistentVolumes to delete in this namespace"
+        else
+            for pvc in $persistent_volume; do
+                kubectl delete -n "${namespace}" persistentvolumeclaim "${pvc}"
+            done
+        fi
+    fi
+
     echo "--------"
 done
 
-if [ "$DELETEPV" -eq 0 ] ; then
-    #### check if there are persistent volumes claims ####
-    persistent_volume=$(kubectl get persistentvolumeclaims 2> /dev/null | tail -n+2 | cut -d " " -f 1 )
-    if [ -z "$persistent_volume" ] ; then
-        echo "No PersistentVolumes to delete"
-    else
-        for pvc in $persistent_volume; do
-            ### added pv patch to finelaizers from https://github.com/kubernetes/kubernetes/issues/77258#issuecomment-514543465 ###
-            #kubectl patch persistentvolume "${pv}" -p '{"metadata":{"finalizers": null}}'
-            kubectl delete persistentvolumeclaim "${pvc}"
-        done
-    fi
-fi
+
+

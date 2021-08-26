@@ -1,4 +1,4 @@
-!/bin/sh
+#!/bin/sh
 
 # set HELM_BIN using Helm, or default to 'helm' if empty
 HELM_BIN="${HELM_BIN:-helm}"
